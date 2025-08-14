@@ -48,9 +48,12 @@ def make_openai_request(endpoint: str, method: str = "GET", data: Dict = None) -
     
     try:
         if method == "GET":
-            response = requests.get(url, headers=headers, timeout=30)
+            # GET requests can be shorter (for polling status)
+            response = requests.get(url, headers=headers, timeout=60)
         else:
-            response = requests.post(url, headers=headers, json=data, timeout=120)
+            # POST requests for Deep Research need much longer timeout
+            # Deep Research can take 2-5 minutes to complete
+            response = requests.post(url, headers=headers, json=data, timeout=300)
         
         if response.status_code == 200:
             return response.json()
@@ -113,6 +116,7 @@ def start_research(
             })
         
         # Use the Responses API format - input needs "message" type
+        # Use background=True to avoid timeout
         data = {
             "model": model,
             "input": [{
@@ -123,7 +127,8 @@ def start_research(
             "text": {},  # Empty as per OpenAI docs
             "reasoning": {"summary": "auto"},
             "tools": tools,
-            "store": True
+            "store": True,
+            "background": True  # Run in background to avoid timeout
         }
         
         # Call the Responses API
