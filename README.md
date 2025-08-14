@@ -1,6 +1,56 @@
 # OpenAI Deep Research MCP Server
 
-A Model Context Protocol (MCP) server that proxies to OpenAI's Deep Research capabilities via the Responses API. This allows Claude Code to leverage OpenAI's o3/o4 deep research models for complex research tasks.
+A Model Context Protocol (MCP) server that proxies to OpenAI's Deep Research capabilities via the Responses API. This allows Claude Code to leverage OpenAI's o3/o4 deep research models for complex research tasks, particularly useful for demand compass analyses in the Takuma OS ecosystem.
+
+## Quick Start for Team Members
+
+### Prerequisites
+- Claude Code CLI installed
+- OpenAI API key with Deep Research access
+- Python 3.11+ on your system
+
+### Installation (5 minutes)
+
+1. **Clone this repo** (or use as submodule):
+```bash
+# As standalone
+git clone [your-repo-url] openai-deep-research-mcp
+cd openai-deep-research-mcp
+
+# Or as submodule in takuma-os
+cd /path/to/takuma-os
+git submodule add [your-repo-url] tools/mcp/openai-deep-research-mcp
+git submodule update --init
+```
+
+2. **Set up environment**:
+```bash
+cd openai-deep-research-mcp
+cp .env.example .env
+# Add your OpenAI API key to .env file
+```
+
+3. **Install dependencies**:
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+4. **Add to Claude Code**:
+```bash
+# Get the full path
+pwd  # Copy this path
+
+# Add to Claude (replace PATH with your actual path)
+claude mcp add --scope user openai-deep-research -- PATH/venv/bin/python PATH/server.py
+```
+
+5. **Verify**:
+```bash
+claude mcp list  # Should show ✓ Connected
+# In Claude chat, type: /mcp
+```
 
 ## What This Does
 

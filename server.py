@@ -73,18 +73,14 @@ def start_research(
             })
         
         # Create the response with background mode
+        # Build the input with system prompt and user query
+        full_input = f"""You are a deep research assistant. Provide comprehensive, well-sourced research with citations.
+
+User Query: {query}"""
+        
         response = client.responses.create(
             model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a deep research assistant. Provide comprehensive, well-sourced research with citations."
-                },
-                {
-                    "role": "user",
-                    "content": query
-                }
-            ],
+            input=full_input,
             background=True,  # Run in background mode
             reasoning={"summary": "auto"},
             tools=tools,
