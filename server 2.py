@@ -12,10 +12,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import fastmcp
 
-# Load environment variables from .env file in the script directory
-script_dir = os.path.dirname(os.path.abspath(__file__))
-env_path = os.path.join(script_dir, '.env')
-load_dotenv(env_path)
+# Load environment variables
+load_dotenv()
 
 # Setup logging to stderr (reduced verbosity for MCP)
 logging.basicConfig(
@@ -29,80 +27,20 @@ logger = logging.getLogger(__name__)
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     logger.error("OPENAI_API_KEY not found in environment")
-    logger.error(f"Looked for .env at: {env_path}")
     sys.exit(1)
 
-# Try to create client with proper SSL handling
-try:
-    import httpx
-    import ssl
-    
-    # Create custom HTTP client with better SSL handling
-    # This helps with corporate proxies and SSL issues
-    http_client = httpx.Client(
-        timeout=120.0,
-        verify=True,  # Keep SSL verification enabled
-        http2=True,   # Enable HTTP/2 for better performance
-        limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
-    )
-    
-    client = OpenAI(
-        api_key=api_key,
-        project=os.getenv("OPENAI_PROJECT"),
-        base_url=os.getenv("OPENAI_BASE_URL"),
-        http_client=http_client
-    )
-except ImportError:
-    # Fallback if httpx isn't available
-    client = OpenAI(
-        api_key=api_key,
-        project=os.getenv("OPENAI_PROJECT"),
-        base_url=os.getenv("OPENAI_BASE_URL"),
-        timeout=120.0
-    )
+client = OpenAI(
+    api_key=api_key,
+    project=os.getenv("OPENAI_PROJECT"),
+    base_url=os.getenv("OPENAI_BASE_URL"),
+    timeout=120.0  # Generous timeout for long operations
+)
 
 # Initialize MCP server
 mcp = fastmcp.FastMCP("openai-deep-research")
 
 # Track active research sessions
 research_sessions: Dict[str, Dict[str, Any]] = {}
-
-@mcp.tool()
-def test_connection() -> Dict[str, Any]:
-    """Test the OpenAI API connection and return diagnostic information."""
-    import requests
-    
-    result = {
-        "api_key_configured": bool(api_key),
-        "api_key_format": f"sk-{'proj' if api_key and 'proj' in api_key else 'other'}..." if api_key else "missing",
-        "tests": {}
-    }
-    
-    # Test direct HTTP connection
-    try:
-        headers = {'Authorization': f'Bearer {api_key}'}
-        resp = requests.get('https://api.openai.com/v1/models', headers=headers, timeout=10)
-        result["tests"]["direct_http"] = {
-            "status": resp.status_code,
-            "success": resp.status_code == 200
-        }
-    except Exception as e:
-        result["tests"]["direct_http"] = {"error": str(e)}
-    
-    # Test OpenAI client
-    try:
-        models = client.models.list()
-        result["tests"]["openai_client"] = {
-            "success": True,
-            "model_count": len(models.data)
-        }
-        # Check for deep research models
-        dr_models = [m.id for m in models.data if 'deep-research' in m.id]
-        result["tests"]["deep_research_models"] = dr_models[:3] if dr_models else []
-    except Exception as e:
-        result["tests"]["openai_client"] = {"error": str(e)}
-    
-    return result
 
 @mcp.tool()
 def start_research(
@@ -132,35 +70,20 @@ def start_research(
                 "container": {"type": "auto"}
             })
         
-        # Create the response using the official API format
-        # Based on OpenAI docs: the text field should be empty {}
-        # and the query should go in a different field or as a message
-        try:
-            response = client.responses.create(
-                model=model,
-                input=[{
-                    "type": "text",
-                    "text": f"You are a deep research assistant. Provide comprehensive, well-sourced research with citations.\n\nUser Query: {query}"
-                }],
-                text={},  # Empty as per docs
-                reasoning={"summary": "auto"},
-                tools=tools,
-                store=True
-            )
-        except AttributeError:
-            # Fallback if responses API isn't available
-            # Use regular chat completion as a fallback
-            response = client.chat.completions.create(
-                model="gpt-4-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a deep research assistant. Provide comprehensive research."},
-                    {"role": "user", "content": query}
-                ],
-                max_tokens=4000
-            )
-            # Mock the response format for compatibility
-            response.id = response.id
-            response.status = "completed"
+        # Create the response with background mode
+        # Build the input with system prompt and user query
+        full_input = f"""You are a deep research assistant. Provide comprehensive, well-sourced research with citations.
+
+User Query: {query}"""
+        
+        response = client.responses.create(
+            model=model,
+            input=full_input,
+            background=True,  # Run in background mode
+            reasoning={"summary": "auto"},
+            tools=tools,
+            max_tool_calls=max_tool_calls
+        )
         
         # Store session info
         session_id = response.id
@@ -269,6 +192,7 @@ def get_result(id: str) -> Dict[str, Any]:
         return result
         
     except Exception as e:
+        logger.error(f"Failed to get result for {id}: {e}")
         return {
             "id": id,
             "status": "error",
