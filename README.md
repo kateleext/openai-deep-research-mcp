@@ -14,13 +14,13 @@ A Model Context Protocol (MCP) server that proxies to OpenAI's Deep Research cap
 1. **Clone this repo** (or use as submodule):
 ```bash
 # As standalone
-git clone [your-repo-url] openai-deep-research-mcp
+git clone https://github.com/kateleext/openai-deep-research-mcp.git
 cd openai-deep-research-mcp
 
 # Or as submodule in takuma-os
 cd /path/to/takuma-os
-git submodule add [your-repo-url] tools/mcp/openai-deep-research-mcp
-git submodule update --init
+git submodule add https://github.com/kateleext/openai-deep-research-mcp.git tools/mcp/openai-deep-research-mcp
+git submodule update --init --recursive
 ```
 
 2. **Set up environment**:
