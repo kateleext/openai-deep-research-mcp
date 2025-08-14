@@ -36,30 +36,52 @@ if not api_key:
 try:
     import httpx
     import ssl
+    import certifi
     
-    # Create custom HTTP client with better SSL handling
-    # This helps with corporate proxies and SSL issues
+    # Create custom HTTP client that handles SSL better
+    # Using certifi for certificate bundle and disabling HTTP/2 which can cause issues
     http_client = httpx.Client(
         timeout=120.0,
-        verify=True,  # Keep SSL verification enabled
-        http2=True,   # Enable HTTP/2 for better performance
-        limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+        verify=certifi.where(),  # Use certifi's certificate bundle
+        http2=False,  # Disable HTTP/2 as it can cause connection issues
+        limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+        follow_redirects=True
     )
     
     client = OpenAI(
         api_key=api_key,
         project=os.getenv("OPENAI_PROJECT"),
-        base_url=os.getenv("OPENAI_BASE_URL"),
+        base_url=os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1",
         http_client=http_client
     )
-except ImportError:
-    # Fallback if httpx isn't available
-    client = OpenAI(
-        api_key=api_key,
-        project=os.getenv("OPENAI_PROJECT"),
-        base_url=os.getenv("OPENAI_BASE_URL"),
-        timeout=120.0
-    )
+    logger.info("OpenAI client created with custom HTTP client and certifi")
+except ImportError as e:
+    logger.warning(f"Could not import required libraries: {e}")
+    # Fallback: Try with SSL verification disabled (DEVELOPMENT ONLY)
+    try:
+        import httpx
+        http_client = httpx.Client(
+            timeout=120.0,
+            verify=False,  # Disable SSL verification as last resort
+            http2=False,
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+        )
+        client = OpenAI(
+            api_key=api_key,
+            project=os.getenv("OPENAI_PROJECT"),
+            base_url=os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1",
+            http_client=http_client
+        )
+        logger.warning("OpenAI client created with SSL verification DISABLED - development only!")
+    except:
+        # Final fallback
+        client = OpenAI(
+            api_key=api_key,
+            project=os.getenv("OPENAI_PROJECT"),
+            base_url=os.getenv("OPENAI_BASE_URL"),
+            timeout=120.0
+        )
+        logger.info("OpenAI client created with default settings")
 
 # Initialize MCP server
 mcp = fastmcp.FastMCP("openai-deep-research")
