@@ -15,9 +15,9 @@ import fastmcp
 # Load environment variables
 load_dotenv()
 
-# Setup logging to stderr
+# Setup logging to stderr (reduced verbosity for MCP)
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format='%(asctime)s - %(levelname)s - %(message)s',
     stream=sys.stderr
 )
@@ -62,8 +62,6 @@ def start_research(
         Dict with id and status of the created research task
     """
     try:
-        logger.info(f"Starting research with model {model}: {query[:100]}...")
-        
         # Build tools list
         tools = [{"type": "web_search_preview"}]
         if use_code_interpreter:
@@ -96,15 +94,12 @@ User Query: {query}"""
             "status": response.status
         }
         
-        logger.info(f"Research started with ID: {session_id}")
-        
         return {
             "id": session_id,
             "status": response.status
         }
         
     except Exception as e:
-        logger.error(f"Failed to start research: {e}")
         return {
             "error": str(e),
             "status": "failed"
@@ -122,8 +117,6 @@ def get_result(id: str) -> Dict[str, Any]:
         Dict with id, status, and optionally report, citations, and steps
     """
     try:
-        logger.info(f"Fetching result for research ID: {id}")
-        
         # Fetch the response
         response = client.responses.get(id)
         
@@ -138,8 +131,6 @@ def get_result(id: str) -> Dict[str, Any]:
         
         # If completed, extract the results
         if response.status == "completed":
-            logger.info(f"Research {id} completed, extracting results")
-            
             # Extract final report text
             if response.output and len(response.output) > 0:
                 last_output = response.output[-1]
@@ -201,7 +192,6 @@ def get_result(id: str) -> Dict[str, Any]:
         return result
         
     except Exception as e:
-        logger.error(f"Failed to get result for {id}: {e}")
         return {
             "id": id,
             "status": "error",
@@ -210,16 +200,14 @@ def get_result(id: str) -> Dict[str, Any]:
 
 def main():
     """Run the MCP server."""
-    logger.info("Starting OpenAI Deep Research MCP server")
-    
     # Verify API key
     if not api_key:
         print("Error: OPENAI_API_KEY not set in environment", file=sys.stderr)
         print("Please create a .env file with your OpenAI API key", file=sys.stderr)
         sys.exit(1)
     
-    # Run the server
-    mcp.run()
+    # Run the server with stdio transport and no banner
+    mcp.run(transport="stdio", show_banner=False)
 
 if __name__ == "__main__":
     main()
