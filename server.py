@@ -12,8 +12,10 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import fastmcp
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from .env file in the script directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(script_dir, '.env')
+load_dotenv(env_path)
 
 # Setup logging to stderr (reduced verbosity for MCP)
 logging.basicConfig(
@@ -27,13 +29,14 @@ logger = logging.getLogger(__name__)
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     logger.error("OPENAI_API_KEY not found in environment")
+    logger.error(f"Looked for .env at: {env_path}")
     sys.exit(1)
 
 client = OpenAI(
     api_key=api_key,
     project=os.getenv("OPENAI_PROJECT"),
     base_url=os.getenv("OPENAI_BASE_URL"),
-    timeout=120.0  # Generous timeout for long operations
+    timeout=120.0
 )
 
 # Initialize MCP server
@@ -70,19 +73,16 @@ def start_research(
                 "container": {"type": "auto"}
             })
         
-        # Create the response with background mode
-        # Build the input with system prompt and user query
-        full_input = f"""You are a deep research assistant. Provide comprehensive, well-sourced research with citations.
-
-User Query: {query}"""
-        
+        # Create the response using the official API format
         response = client.responses.create(
             model=model,
-            input=full_input,
-            background=True,  # Run in background mode
+            input=[],
+            text={
+                "content": f"You are a deep research assistant. Provide comprehensive, well-sourced research with citations.\n\nUser Query: {query}"
+            },
             reasoning={"summary": "auto"},
             tools=tools,
-            max_tool_calls=max_tool_calls
+            store=True
         )
         
         # Store session info
