@@ -88,7 +88,7 @@ def test_connection() -> Dict[str, Any]:
 @mcp.tool()
 def start_research(
     query: str,
-    model: str = "o4-mini-deep-research",
+    model: str = "o3-mini",
     max_tool_calls: int = 50,
     use_code_interpreter: bool = False
 ) -> Dict[str, Any]:
@@ -97,7 +97,7 @@ def start_research(
     
     Args:
         query: The research question
-        model: Deep Research model to use (o4-mini-deep-research or o3-deep-research)
+        model: Deep Research model to use (o3-mini, o3, o4-mini-2025-04-16, etc.)
         max_tool_calls: Maximum number of tool calls
         use_code_interpreter: Whether to enable code interpreter
     
@@ -154,8 +154,12 @@ def start_research(
             # Fallback to chat completions if Responses API fails
             logger.warning(f"Responses API failed: {response['error']}, falling back to chat completions")
             
+            # Use appropriate token parameter based on model
+            fallback_model = "gpt-4-turbo"
+            token_param = "max_tokens" if "gpt" in fallback_model else "max_completion_tokens"
+            
             data = {
-                "model": "gpt-4-turbo",
+                "model": fallback_model,
                 "messages": [
                     {
                         "role": "system",
@@ -166,7 +170,7 @@ def start_research(
                         "content": query
                     }
                 ],
-                "max_tokens": 4000
+                token_param: 4000
             }
             
             fallback_response = make_openai_request("chat/completions", method="POST", data=data)
